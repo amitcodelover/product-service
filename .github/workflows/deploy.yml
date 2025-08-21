@@ -1,0 +1,63 @@
+
+# This GitHub Actions workflow is triggered on every push to the main branch.
+# It builds the Spring Boot application, creates a Docker image, pushes it to Amazon ECR,
+# and then deploys the new image to an Amazon ECS service.
+
+name: Deploy to Amazon ECS
+
+on:
+  push:
+    branches:
+      - main
+
+# Environment variables available to all jobs and steps in this workflow.
+# Replace these with your actual values.
+env:
+  AWS_REGION: <your-aws-region>                   # e.g., us-east-1
+  ECR_REPOSITORY: product-service                 # Your ECR repository name
+  ECS_SERVICE: <your-service-name>                # Your ECS service name
+  ECS_CLUSTER: <your-cluster-name>                # Your ECS cluster name
+  ECS_TASK_DEFINITION: product-service            # Your ECS task definition family name
+  CONTAINER_NAME: product-service                 # The name of the container in your task definition
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build the Docker image
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        # Push the image to ECR
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+    - name: Deploy to Amazon ECS
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        image: ${{ steps.build-image.outputs.image }}
+        container-name: ${{ env.CONTAINER_NAME }}
+        wait-for-service-stability: true
