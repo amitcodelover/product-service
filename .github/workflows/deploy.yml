@@ -1,9 +1,8 @@
-
 # This GitHub Actions workflow is triggered on every push to the main branch.
-# It builds the Spring Boot application, creates a Docker image, pushes it to Amazon ECR,
-# and then deploys the new image to an Amazon ECS service.
+# It builds the Spring Boot application, runs tests, creates a Docker image, 
+# pushes it to Amazon ECR, and then deploys the new image to an Amazon ECS service.
 
-name: Deploy to Amazon ECS
+name: Build and Deploy to Amazon ECS
 
 on:
   push:
@@ -11,14 +10,13 @@ on:
       - main
 
 # Environment variables available to all jobs and steps in this workflow.
-# Replace these with your actual values.
 env:
-  AWS_REGION: <your-aws-region>                   # e.g., us-east-1
-  ECR_REPOSITORY: product-service                 # Your ECR repository name
-  ECS_SERVICE: <your-service-name>                # Your ECS service name
-  ECS_CLUSTER: <your-cluster-name>                # Your ECS cluster name
-  ECS_TASK_DEFINITION: product-service            # Your ECS task definition family name
-  CONTAINER_NAME: product-service                 # The name of the container in your task definition
+  AWS_REGION: eu-north-1
+  ECR_REPOSITORY: product/product-service
+  ECS_SERVICE: product-service-service-4g35gdxv
+  ECS_CLUSTER: product-service
+  ECS_TASK_DEFINITION: product-service # The family name of your task definition
+  CONTAINER_NAME: product-service      # The name of the container in your task definition
 
 jobs:
   build-and-deploy:
@@ -28,6 +26,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build with Gradle
+      run: ./gradlew build
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
@@ -50,14 +57,24 @@ jobs:
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         # Push the image to ECR
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Deploy to Amazon ECS
+    - name: Download task definition
+      run: |
+        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+
+    - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
-        image: ${{ steps.build-image.outputs.image }}
-        container-name: ${{ env.CONTAINER_NAME }}
         wait-for-service-stability: true

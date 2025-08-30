@@ -105,3 +105,56 @@ Deletes the product with the specified ID.
 ```bash
 curl -X DELETE http://localhost:8080/products/1
 ```
+
+---
+
+## Docker Image for AWS ECR
+
+This section describes how to build the application's Docker image and push it to Amazon Elastic Container Registry (ECR) for deployment.
+
+### Prerequisites
+
+*   Docker installed and running.
+*   AWS CLI installed and configured with permissions to push to ECR.
+
+### 1. Build the Docker Image
+
+This project uses a multi-stage Dockerfile, which handles the application build and image creation in a single step. You do not need to build the application with Gradle separately.
+
+```bash
+docker build -t product-service .
+```
+
+### 2. Push the Image to ECR
+
+Follow these steps to push the image to your ECR repository.
+
+**a. Create the ECR Repository (if it doesn't exist)**
+Replace `your-aws-region` with your desired AWS region.
+
+```bash
+aws ecr create-repository \
+    --repository-name product-service \
+    --region your-aws-region
+```
+
+**b. Authenticate Docker to the ECR Registry**
+Replace `your-aws-account-id` and `your-aws-region`. This command retrieves a temporary token to log Docker in.
+
+```bash
+aws ecr get-login-password --region your-aws-region | docker login --username AWS --password-stdin your-aws-account-id.dkr.ecr.your-aws-region.amazonaws.com
+```
+
+**c. Tag the Image**
+Tag your local image with the full ECR repository URI. Replace `your-aws-account-id` and `your-aws-region`.
+
+```bash
+docker tag product-service:latest your-aws-account-id.dkr.ecr.your-aws-region.amazonaws.com/product-service:latest
+```
+
+**d. Push the Image**
+Push the tagged image to ECR.
+
+```bash
+docker push your-aws-account-id.dkr.ecr.your-aws-region.amazonaws.com/product-service:latest
+```
