@@ -49,15 +49,14 @@ jobs:
 
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Build the Docker image
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -v /var/run/docker.sock:/var/run/docker.sock .
-        # Push the image to ECR
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        labels: |
+          org.opencontainers.image.source=${{ github.repositoryUrl }}
+          org.opencontainers.image.revision=${{ github.sha }}
 
     - name: Download task definition
       run: |
@@ -66,7 +65,7 @@ jobs:
     - name: Remove unsupported enableFaultInjection key
       run: |
         jq 'del(.enableFaultInjection)' task-definition.json > clean-task-definition.json
-        mv clean-task-definition.json task-definition.json    
+        mv clean-task-definition.json task-definition.json
 
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
@@ -74,7 +73,7 @@ jobs:
       with:
         task-definition: task-definition.json
         container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
+        image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
