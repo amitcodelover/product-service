@@ -1,6 +1,6 @@
 # This GitHub Actions workflow is triggered on every push to the main branch.
 # It builds the Spring Boot application, runs tests, creates a Docker image, 
-# pushes it to Amazon ECR, and then deploys the new image to an Amazon ECS service.
+# provisions the infrastructure with Terraform, and deploys the new image.
 
 name: Build and Deploy to Amazon ECS
 
@@ -13,15 +13,14 @@ on:
 env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: product/product-service
-  ECS_SERVICE: product-service-service-4g35gdxv
-  ECS_CLUSTER: product-service
-  ECS_TASK_DEFINITION: product-service # The family name of your task definition
-  CONTAINER_NAME: product-service      # The name of the container in your task definition
 
 jobs:
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for AWS OIDC connection
 
     steps:
     - name: Checkout code
@@ -58,27 +57,19 @@ jobs:
           org.opencontainers.image.source=${{ github.repositoryUrl }}
           org.opencontainers.image.revision=${{ github.sha }}
 
-    - name: Download task definition
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Init
+      id: init
+      run: terraform -chdir=infra init
+
+    - name: Terraform Plan
+      id: plan
       run: |
-        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
+        terraform -chdir=infra plan -var="app_image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" -no-color
+      continue-on-error: true
 
-    - name: Remove unsupported enableFaultInjection key
+    - name: Terraform Apply
       run: |
-        jq 'del(.enableFaultInjection)' task-definition.json > clean-task-definition.json
-        mv clean-task-definition.json task-definition.json
-
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: task-definition.json
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+        terraform -chdir=infra apply -auto-approve -var="app_image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
