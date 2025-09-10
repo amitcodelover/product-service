@@ -19,7 +19,7 @@ variable "ecs_cluster_name" {
 variable "ecs_service_name" {
   description = "The name of the ECS service."
   type        = string
-  default     = "product-service-service"
+  default     = "product-service-service-4g35gdxv"
 }
 
 variable "ecs_task_family" {
