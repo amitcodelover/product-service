@@ -78,6 +78,14 @@ resource "aws_ecs_task_definition" "app_task_def" {
           hostPort      = var.app_port
         }
       ],
+      environment = [
+        { name = "DB_HOST", value = "database-1.cvekm40wm56g.eu-north-1.rds.amazonaws.com" },
+        { name = "DB_NAME", value = "database-1" },
+        { name = "DB_PASSWORD", value = "Durgapura123!" },
+        { name = "DB_PORT", value = "5432" },
+        { name = "DB_USERNAME", value = "postgres" },
+        { name = "SPRING_PROFILES_ACTIVE", value = "prod" }
+      ],
       logConfiguration = {
         logDriver = "awslogs",
         options = {
