@@ -108,6 +108,36 @@ curl -X DELETE http://localhost:8080/products/1
 
 ---
 
+## Deployed Architecture
+
+The project is configured for continuous deployment to AWS. The following diagram illustrates the CI/CD pipeline and the deployed infrastructure.
+
+```mermaid
+graph TD
+    subgraph "CI/CD Pipeline (Triggered on git push)"
+        direction LR
+        A[GitHub & Actions] -- "1. Push to 'main'" --> B{Build & Test};
+        B -- "2. Build Image" --> C[Docker Build];
+        C -- "3. Push Image" --> D[AWS ECR];
+        D -- "4. Apply Infra Changes" --> E{Terraform Apply};
+        E -- "5. Update Service" --> F[ECS Service];
+    end
+
+    subgraph "AWS Runtime Infrastructure"
+        direction TB
+        User[Client] -- "HTTP Request" --> G[Public IP];
+        G --> H[ECS Service on Fargate];
+        H --> I[Application Container];
+        I -- "JDBC Connection" --> J[AWS RDS PostgreSQL];
+        I -- "Container Logs" --> K[AWS CloudWatch Logs];
+    end
+
+    D -- "Pulls Image" --> I;
+
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style J fill:#bbf,stroke:#333,stroke-width:2px
+```
+
 ## Docker Image for AWS ECR
 
 This section describes how to build the application's Docker image and push it to Amazon Elastic Container Registry (ECR) for deployment.
