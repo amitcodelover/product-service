@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reporting-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reporting-service
+  template:
+    metadata:
+      labels:
+        app: reporting-service
+    spec:
+      containers:
+        - name: reporting-service
+          image: reporting-service:latest # This will be built by our local build process
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: clickhouse-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting-service
+spec:
+  type: ClusterIP
+  selector:
+    app: reporting-service
+  ports:
+    # No ports needed for external access, but a service object is good for identification
+    - port: 8080
+      targetPort: 8080

@@ -1,2 +1,2 @@
 rootProject.name = "product-service-parent"
-include("product-service", "gateway-service", "eureka-server")
+include("product-service", "gateway-service", "eureka-server", "reporting-service")

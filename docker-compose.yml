@@ -58,3 +58,8 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
+
+  reporting-service:
+    build:
+      context: .
+      dockerfile: ./reporting-service/Dockerfile

@@ -1,0 +1,15 @@
+{
+  "name": "product-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "user",
+    "database.password": "password",
+    "database.dbname": "product-service",
+    "database.server.name": "postgres-server",
+    "table.include.list": "public.product",
+    "plugin.name": "pgoutput"
+  }
+}
+c

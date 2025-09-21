@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-service
+  template:
+    metadata:
+      labels:
+        app: gateway-service
+    spec:
+      containers:
+        - name: gateway-service
+          image: product-service-gateway-service
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4004
+          env:
+            # Point Spring to the new config file location
+            - name: SPRING_CONFIG_LOCATION
+              value: /config/
+          volumeMounts:
+            - name: gateway-config-volume
+              mountPath: /config
+      volumes:
+        - name: gateway-config-volume
+          configMap:
+            name: gateway-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+spec:
+  type: ClusterIP
+  selector:
+    app: gateway-service
+  ports:
+    - port: 4004
+      targetPort: 4004

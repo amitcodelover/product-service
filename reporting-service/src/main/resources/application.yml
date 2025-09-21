@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: reporting-service
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: reporting-group-id
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+  datasource:
+    url: jdbc:clickhouse://clickhouse:8123/default
+    username: default
+    password: ${CLICKHOUSE_PASSWORD}
+    driver-class-name: com.clickhouse.jdbc.ClickHouseDriver
